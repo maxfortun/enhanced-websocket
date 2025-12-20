@@ -3,14 +3,14 @@ import { WebSocket } from 'partysocket';
 const debug = Debug('EnhancedWebSocket');
 
 export function EnhancedWebSocket(args) {
-	const WebSocketImpl = props.WebSocket  || WebSocket;
+	const WebSocketImpl = args.WebSocket  || WebSocket;
 	debug('WebSocketImpl:', WebSocketImpl);
 
-	this = new WebSocketImpl(...args);
+	const ws = new WebSocketImpl(...args);
 
-	this.requests = {};
+	ws.requests = {};
 	
-	this.parseEnhancedMessage = async message => {
+	ws.parseEnhancedMessage = async message => {
 		if (typeof message === 'string') {
 			try {
 				return JSON.parse(message);
@@ -36,25 +36,25 @@ export function EnhancedWebSocket(args) {
 		}
 	};
 
-	this.addEventListener('message', async event => {
+	ws.addEventListener('message', async event => {
 		try {
-			const enhanced_message = await this.parseEnhancedMessage(event.data); 
+			const enhanced_message = await ws.parseEnhancedMessage(event.data); 
 			
 			const req_id = enhanced_message.req_id;
 			if(!req_id) {
 				debug('Event(no req_id):', enhanced_message);
-				this.emit('enhanced_message', enhanced_message);
+				ws.emit('enhanced_message', enhanced_message);
 				return;
 			}
 
-			const promise = this.requests[req_id];
+			const promise = ws.requests[req_id];
 			if(!promise) {
 				debug('Event(no promise):', enhanced_message);
-				this.emit('enhanced_message', enhanced_message);
+				ws.emit('enhanced_message', enhanced_message);
 				return;
 			}
 
-			const emitter = promise.emitter || this;
+			const emitter = promise.emitter || ws;
 			if(enhanced_message.is_stream) {
 				if(!promise.is_stream) {
 					promise.is_stream = enhanced_message.is_stream;
@@ -77,9 +77,9 @@ export function EnhancedWebSocket(args) {
 				return;
 			}
 
-			debug('Response:', data);
+			debug('Response:', enhanced_message);
 			clearTimeout(promise?.timeout);
-			delete this.requests[req_id];
+			delete ws.requests[req_id];
 			emitter.emit('enhanced_message', enhanced_message);
 			promise.resolve(enhanced_message);
 		} catch(e) {
@@ -87,7 +87,7 @@ export function EnhancedWebSocket(args) {
 		}
 	});
 
-	this.fileSha256 = async file => {
+	ws.fileSha256 = async file => {
 		const buffer = await file.arrayBuffer();
 
 		const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
@@ -98,23 +98,23 @@ export function EnhancedWebSocket(args) {
 		return hashHex;
 	};
 
-	this.fileSha256IdGen = async file => {
-		const hashHex = await this.fileSha256(file);
-		return '${sha256:' + hashHex + '}';
+	ws.fileSha256IdGen = async file => {
+		const hashHex = await ws.fileSha256(file);
+		return `\${sha256:${hashHex}}`;
 	};
 
-	this.extractAttachments = async (obj, attachments = [], idGenerator = this.fileSha256IdGen) => {
+	ws.extractAttachments = async (obj, attachments = [], idGenerator = ws.fileSha256IdGen) => {
 		if (obj instanceof Blob || obj instanceof File) {
 			const id = await idGenerator(obj);
 			attachments.push({ id, data: obj });
 			return id; // replace with string reference
 		} else if (Array.isArray(obj)) {
-			return Promise.all(obj.map(item => extractAttachments(item, attachments, idGenerator)));
+			return Promise.all(obj.map(item => ws.extractAttachments(item, attachments, idGenerator)));
 		} else if (obj && typeof obj === 'object') {
 			const result = {};
 			for (const key in obj) {
 				if (Object.hasOwn(obj, key)) {
-					result[key] = await extractAttachments(obj[key], attachments, idGenerator);
+					result[key] = await ws.extractAttachments(obj[key], attachments, idGenerator);
 				}
 			}
 			return result;
@@ -122,27 +122,27 @@ export function EnhancedWebSocket(args) {
 		return obj; // primitives remain unchanged
 	};
 
-	this.sendEnhanced = async (enhanced_message, options = {}) => {
+	ws.sendEnhanced = async (enhanced_message, options = {}) => {
 		if (typeof enhanced_message === 'string') {
-			return this.sendEnhancedImpl(enhanced_message, options);
+			return ws.sendEnhancedImpl(enhanced_message, options);
 		}
 
-		return this.sendEnhancedImpl(JSON.stringify(enhanced_message), options));
+		return ws.sendEnhancedImpl(JSON.stringify(enhanced_message), options);
 	};
 
-	this.sendEnhancedData = async (enhanced_message, options) => {
+	ws.sendEnhancedData = async (enhanced_message, options) => {
 		if(!enhanced_message.data) {
-			return this.sendEnhanced(enhanced_message);
+			return ws.sendEnhanced(enhanced_message);
 		}
 
 		const attachments = [];
-		enhanced_message.data = await this.extractAttachments(enhanced_message.data, attachments);
+		enhanced_message.data = await ws.extractAttachments(enhanced_message.data, attachments);
 		if(attachments.length) {
 			enhanced_message.is_stream = true;
 		}
 
 		const promises = [
-			this.sendEnhancedImpl(JSON.stringify(enhanced_message.data), options)
+			ws.sendEnhancedImpl(JSON.stringify(enhanced_message), options)
 		];
 
 		const {
@@ -160,7 +160,7 @@ export function EnhancedWebSocket(args) {
 		}
 
 		// find the stream end
-		for(let i = attachments.length - 1; i > 0; i--) {
+		for(let i = attachments.length - 1; i >= 0; i--) {
 			const attachment = attachments[i];
 			if(!attachment.exists) {
 				attachment.is_stream_end = true;
@@ -170,18 +170,19 @@ export function EnhancedWebSocket(args) {
 
 		const encoder = new TextEncoder();
 		for(let i = 0; i < attachments.length; i++) {
+			const attachment = attachments[i];
 			if(attachment.exists) {
 				debug('Not sent. Attachment exists.', attachment.id);
 				continue;
 			}
 
-			promises.push(this.sendEnhancedBlob(attachment, enhanced_message));
-		});
+			promises.push(ws.sendEnhancedBlob(attachment, enhanced_message));
+		}
 
 		return Promise.all(promises);
 	};
 
-	this.sendEnhancedBlob = async (enhanced_blob, options = {}) => {
+	ws.sendEnhancedBlob = async (enhanced_blob, options = {}) => {
 		const header = {
 			id: enhanced_blob.id,
 			type: enhanced_blob.type,
@@ -192,17 +193,18 @@ export function EnhancedWebSocket(args) {
 		}
 
 		const headerString = JSON.stringify(header);
+		const encoder = new TextEncoder();
 		const headerBytes = encoder.encode(headerString);
-		const headerLength = new ArrayBuffer(4);
-		new DataView(headerLength).setUint32(0, headerBytes.length);
+		const headerLength = new Uint8Array(4);
+		new DataView(headerLength.buffer).setUint32(0, headerBytes.length);
 
 		const blob = new Blob([headerLength, headerBytes, enhanced_blob.data], { type: header.type });
-		return this.sendEnhancedImpl(blob, options);
+		return ws.sendEnhancedImpl(blob, options);
 	};
 
-	this.sendEnhancedImpl = async (message, options = {}) => {
-		if(this.readyState != this.OPEN) {
-			debug('Not sent', this.readyState, enhanced_message);
+	ws.sendEnhancedImpl = async (message, options = {}) => {
+		if(ws.readyState != ws.OPEN) {
+			debug('Not sent', ws.readyState, message);
 			return;
 		}
 
@@ -214,9 +216,9 @@ export function EnhancedWebSocket(args) {
 
 		return new Promise((resolve, reject) => {
 			debug('Send', message);
-			this.send(message);
+			ws.send(message);
 			if(req_id) {
-				this.requests[req_id] = {
+				ws.requests[req_id] = {
 					created: new Date(),
 					ttl: timeout,
 					resolve,
@@ -224,13 +226,15 @@ export function EnhancedWebSocket(args) {
 					emitter,
 					timeout: setTimeout(() => {
 						debug('Response timeout', message);
-						clearTimeout(this.requests[req_id]?.timeout);
-						delete this.requests[req_id];
+						clearTimeout(ws.requests[req_id]?.timeout);
+						delete ws.requests[req_id];
 						reject(new Error('Timeout waiting for '+req_id+' response'));
 					}, timeout)
 				};
 			}
 		});
 	};
+
+	return ws;
 }
 
