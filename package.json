@@ -10,6 +10,7 @@
   "author": "Max Fortun <max@maxf.net>",
   "private": true,
   "scripts": {
+    "test": "node --test",
     "lint": "eslint ./",
     "release": "git tag | grep -q $npm_package_version && echo \"Release $npm_package_version already exists.\" || ( ( git diff-index --quiet HEAD || git commit -a -m \"Releasing $npm_package_version\" ) && git push && git tag $npm_package_version && git push --tags;)"
   },

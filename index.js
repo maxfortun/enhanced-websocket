@@ -3,7 +3,16 @@ import { WebSocket } from 'partysocket';
 const debug = Debug('EnhancedWebSocket');
 
 export function EnhancedWebSocket(args) {
-	const WebSocketImpl = args.WebSocket  || WebSocket;
+	const getWebSocketImpl = () => {
+		if(args.length > 2) {
+			if(args[2].WebSocket) {
+				return args[2].WebSocket;
+			}
+		}
+		return WebSocket;
+	};
+
+	const WebSocketImpl = getWebSocketImpl();
 	debug('WebSocketImpl:', WebSocketImpl);
 
 	const ws = new WebSocketImpl(...args);
