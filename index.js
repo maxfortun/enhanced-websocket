@@ -2,7 +2,7 @@ import Debug from 'debug';
 import { WebSocket } from 'partysocket';
 const debug = Debug('EnhancedWebSocket');
 
-export function EnhancedWebSocket(args) {
+export function EnhancedWebSocket(...args) {
 	const getWebSocketImpl = () => {
 		if(args.length > 2) {
 			if(args[2].WebSocket) {
@@ -13,7 +13,7 @@ export function EnhancedWebSocket(args) {
 	};
 
 	const WebSocketImpl = getWebSocketImpl();
-	debug('WebSocketImpl:', WebSocketImpl);
+	debug('WebSocketImpl:', WebSocketImpl, args);
 
 	const ws = new WebSocketImpl(...args);
 
