@@ -2,20 +2,31 @@ import Debug from 'debug';
 import { WebSocket } from 'partysocket';
 const debug = Debug('EnhancedWebSocket');
 
-export function EnhancedWebSocket(...args) {
-	const getWebSocketImpl = () => {
-		if(args.length > 2) {
-			if(args[2].WebSocket) {
-				return args[2].WebSocket;
-			}
+export function EnhancedWebSocket(...allArgs) {
+	// Extract options from last argument if it has WebSocket property
+	let wsArgs = allArgs;
+	let options = {};
+	
+	if (allArgs.length > 0) {
+		const lastArg = allArgs[allArgs.length - 1];
+		
+		// Only treat as options if it's an object with WebSocket property
+		if (typeof lastArg === 'object' && 
+		    lastArg !== null &&
+		    !Array.isArray(lastArg) &&
+		    'WebSocket' in lastArg) {
+			
+			options = lastArg;
+			wsArgs = allArgs.slice(0, -1);
 		}
-		return WebSocket;
-	};
-
-	const WebSocketImpl = getWebSocketImpl();
-	debug('WebSocketImpl:', WebSocketImpl, args);
-
-	const ws = new WebSocketImpl(...args);
+	}
+	
+	// Get WebSocket implementation
+	const WebSocketImpl = options.WebSocket || WebSocket;
+	debug('WebSocketImpl:', WebSocketImpl?.name || 'unknown');
+	
+	// Pass all args to WebSocketImpl
+	const ws = new WebSocketImpl(...wsArgs);
 
 	ws.requests = {};
 	
