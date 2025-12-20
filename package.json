@@ -1,0 +1,24 @@
+{
+  "name": "@maxfortun/enhanced-websocket",
+  "version": "0.0.1",
+  "description": "Max Fortun's Enhanced WebSocket",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maxfortun/enhanced-websocket.git"
+  },
+  "author": "Max Fortun <max@maxf.net>",
+  "private": true,
+  "scripts": {
+    "lint": "eslint ./",
+    "release": "git tag | grep -q $npm_package_version && echo \"Release $npm_package_version already exists.\" || ( ( git diff-index --quiet HEAD || git commit -a -m \"Releasing $npm_package_version\" ) && git push && git tag $npm_package_version && git push --tags;)"
+  },
+  "dependencies": {
+    "debug": "^4.3.4",
+    "partysocket": "^1.1.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.25.0",
+    "eslint": "^9.25.0"
+  }
+}
