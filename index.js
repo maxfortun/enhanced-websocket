@@ -224,7 +224,7 @@ export function EnhancedWebSocket(...allArgs) {
 			promises.push(ws.sendEnhancedBlob(attachment, enhanced_message));
 		}
 
-		return Promise.all(promises);
+		return Promise.all(promises).then(resolved => resolved.length?resolved[0]:null);
 	};
 
 	ws.sendEnhancedBlob = async (enhanced_blob, options = {}) => {
