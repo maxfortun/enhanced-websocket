@@ -148,10 +148,27 @@ export function EnhancedWebSocket(...allArgs) {
 		return obj; // primitives remain unchanged
 	};
 
+	ws.ensure_req_id = (enhanced_message, options = {}) => {
+		if(!enhanced_message.req_id && !options.req_id) {
+			options.req_id = crypto.randomUUID();
+			enhanced_message.req_id = options.req_id;
+		}
+
+		if(!enhanced_message.req_id && options.req_id) {
+			enhanced_message.req_id = options.req_id;
+		}
+
+		if(!options.req_id && enhanced_message.req_id) {
+			options.req_id = enhanced_message.req_id;
+		}
+	};
+
 	ws.sendEnhanced = async (enhanced_message, options = {}) => {
 		if (typeof enhanced_message === 'string') {
 			return ws.sendEnhancedImpl(enhanced_message, options);
 		}
+
+		ws.ensure_req_id(enhanced_message, options);
 
 		return ws.sendEnhancedImpl(JSON.stringify(enhanced_message), options);
 	};
@@ -160,6 +177,8 @@ export function EnhancedWebSocket(...allArgs) {
 		if(!enhanced_message.data) {
 			return ws.sendEnhanced(enhanced_message);
 		}
+
+		ws.ensure_req_id(enhanced_message, options);
 
 		const attachments = [];
 		enhanced_message.data = await ws.extractAttachments(enhanced_message.data, attachments);
@@ -209,6 +228,8 @@ export function EnhancedWebSocket(...allArgs) {
 	};
 
 	ws.sendEnhancedBlob = async (enhanced_blob, options = {}) => {
+		ws.ensure_req_id(enhanced_blob, options);
+
 		const header = {
 			id: enhanced_blob.id,
 			type: enhanced_blob.type,
