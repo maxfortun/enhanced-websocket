@@ -173,7 +173,7 @@ export function EnhancedWebSocket(...allArgs) {
 		return ws.sendEnhancedImpl(JSON.stringify(enhanced_message), options);
 	};
 
-	ws.sendEnhancedData = async (enhanced_message, options) => {
+	ws.sendEnhancedData = async (enhanced_message, options = {}) => {
 		if(!enhanced_message.data) {
 			return ws.sendEnhanced(enhanced_message);
 		}
