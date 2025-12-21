@@ -63,14 +63,16 @@ export function EnhancedWebSocket(...allArgs) {
 			const req_id = enhanced_message.req_id;
 			if(!req_id) {
 				debug('Event(no req_id):', enhanced_message);
-				ws.emit('enhanced_message', enhanced_message);
+				const customEvent = new CustomEvent('enhanced_message', { detail: enhanced_message });
+				ws.dispatchEvent(customEvent);
 				return;
 			}
 
 			const promise = ws.requests[req_id];
 			if(!promise) {
 				debug('Event(no promise):', enhanced_message);
-				ws.emit('enhanced_message', enhanced_message);
+				const customEvent = new CustomEvent('enhanced_message', { detail: enhanced_message });
+				ws.dispatchEvent(customEvent);
 				return;
 			}
 
@@ -80,27 +82,31 @@ export function EnhancedWebSocket(...allArgs) {
 					promise.is_stream = enhanced_message.is_stream;
 					enhanced_message.is_stream_start = true;
 					debug('Stream(start):', enhanced_message);
-					emitter.emit('stream_message', enhanced_message);
+					const customEvent = new CustomEvent('stream_message', { detail: enhanced_message });
+					emitter.dispatchEvent(customEvent);
 					return;
 				}
 
 				if(enhanced_message.is_stream_end) {
 					enhanced_message.is_stream_end = true;
 					debug('Stream(end):', enhanced_message);
-					emitter.emit('stream_message', enhanced_message);
+					const customEvent = new CustomEvent('stream_message', { detail: enhanced_message });
+					emitter.dispatchEvent(customEvent);
 					promise.resolve();
 					return;
 				}
 
 				debug('Stream(chunk):', enhanced_message);
-				emitter.emit('stream_message', enhanced_message);
+				const customEvent = new CustomEvent('stream_message', { detail: enhanced_message });
+				emitter.dispatchEvent(customEvent);
 				return;
 			}
 
 			debug('Response:', enhanced_message);
 			clearTimeout(promise?.timeout);
 			delete ws.requests[req_id];
-			emitter.emit('enhanced_message', enhanced_message);
+			const customEvent = new CustomEvent('enhanced_message', { detail: enhanced_message });
+			emitter.dispatchEvent(customEvent);
 			promise.resolve(enhanced_message);
 		} catch(e) {
 			debug('Message Error', event, e);
