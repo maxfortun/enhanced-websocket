@@ -27,6 +27,18 @@ this.on(event, handler);
 removeEventListener(event, handler) {
 this.removeListener(event, handler);
 }
+
+dispatchEvent(event) {
+// Handle CustomEvent and standard Event objects
+if (event.type) {
+if (event.detail !== undefined) {
+this.emit(event.type, { detail: event.detail });
+} else {
+this.emit(event.type, event);
+}
+}
+return true;
+}
 }
 
 test('EnhancedWebSocket - basic instantiation with custom WebSocket', async () => {
@@ -181,7 +193,12 @@ sentData = data;
 };
 
 const message = { test: 'data', req_id: '123' };
-ws.sendEnhanced(message);
+const promise = ws.sendEnhanced(message);
+// Clean up the timeout since we're not waiting for a response
+if (ws.requests['123']) {
+clearTimeout(ws.requests['123'].timeout);
+delete ws.requests['123'];
+}
 assert.ok(true);
 });
 
@@ -241,6 +258,11 @@ sendCount++;
 const message = { test: 'data' };
 const promise = ws.sendEnhancedData(message, {});
 
+// Clean up any pending requests
+for (const req_id in ws.requests) {
+clearTimeout(ws.requests[req_id].timeout);
+delete ws.requests[req_id];
+}
 assert.ok(promise instanceof Promise);
 });
 
@@ -260,6 +282,11 @@ sentBlob = data;
 
 const promise = ws.sendEnhancedBlob(enhancedBlob, {});
 
+// Clean up any pending requests
+for (const req_id in ws.requests) {
+clearTimeout(ws.requests[req_id].timeout);
+delete ws.requests[req_id];
+}
 assert.ok(promise instanceof Promise);
 });
 
@@ -278,5 +305,10 @@ text: 'Hello World'
 
 const promise = ws.sendEnhanced(message);
 
+// Clean up the timeout since we're not waiting for a response
+if (ws.requests['msg-1']) {
+clearTimeout(ws.requests['msg-1'].timeout);
+delete ws.requests['msg-1'];
+}
 assert.ok(promise instanceof Promise);
 });
