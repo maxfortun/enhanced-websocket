@@ -173,7 +173,7 @@ export function EnhancedWebSocket(...allArgs) {
 
 		const {
 			attachment_exists
-		} = options;
+		} = options || {};
 
 		// check which attachments do not need to be sent. Could be large.
 		if(attachment_exists) {
