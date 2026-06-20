@@ -77,6 +77,29 @@ export function EnhancedWebSocket(...allArgs) {
 			}
 
 			const emitter = promise.emitter || ws;
+
+			// If this is a stream request, wait for is_stream_end before resolving
+			if(promise.is_stream) {
+				if(enhanced_message.is_stream_end) {
+					debug('Stream(end):', enhanced_message);
+					clearTimeout(promise?.timeout);
+					delete ws.requests[req_id];
+					const customEvent = new CustomEvent('stream_message', { detail: enhanced_message });
+					emitter.dispatchEvent(customEvent);
+					promise.resolve(promise.response || enhanced_message);
+					return;
+				}
+
+				// Store the main response but don't resolve yet
+				if(!promise.response) {
+					promise.response = enhanced_message;
+					debug('Stream(response stored):', enhanced_message);
+				}
+				const customEvent = new CustomEvent('stream_message', { detail: enhanced_message });
+				emitter.dispatchEvent(customEvent);
+				return;
+			}
+
 			if(enhanced_message.is_stream) {
 				if(!promise.is_stream) {
 					promise.is_stream = enhanced_message.is_stream;
@@ -187,7 +210,7 @@ export function EnhancedWebSocket(...allArgs) {
 		}
 
 		const promises = [
-			ws.sendEnhancedImpl(JSON.stringify(enhanced_message), options)
+			ws.sendEnhancedImpl(JSON.stringify(enhanced_message), { ...options, is_stream: enhanced_message.is_stream })
 		];
 
 		const {
@@ -239,6 +262,10 @@ export function EnhancedWebSocket(...allArgs) {
 			header.req_id = options.req_id;
 		}
 
+		if(enhanced_blob.is_stream_end) {
+			header.is_stream_end = true;
+		}
+
 		const headerString = JSON.stringify(header);
 		const encoder = new TextEncoder();
 		const headerBytes = encoder.encode(headerString);
@@ -258,6 +285,7 @@ export function EnhancedWebSocket(...allArgs) {
 		const {
 			req_id,
 			emitter,
+			is_stream,
 			timeout = 30000,
 		} = options;
 
@@ -265,19 +293,23 @@ export function EnhancedWebSocket(...allArgs) {
 			debug('Send', message);
 			ws.send(message);
 			if(req_id) {
-				ws.requests[req_id] = {
-					created: new Date(),
-					ttl: timeout,
-					resolve,
-					reject,
-					emitter,
-					timeout: setTimeout(() => {
-						debug('Response timeout', message);
-						clearTimeout(ws.requests[req_id]?.timeout);
-						delete ws.requests[req_id];
-						reject(new Error('Timeout waiting for '+req_id+' response'));
-					}, timeout)
-				};
+				// Don't overwrite existing request entry (for streams with multiple sends)
+				if(!ws.requests[req_id]) {
+					ws.requests[req_id] = {
+						created: new Date(),
+						ttl: timeout,
+						resolve,
+						reject,
+						emitter,
+						is_stream,
+						timeout: setTimeout(() => {
+							debug('Response timeout', message);
+							clearTimeout(ws.requests[req_id]?.timeout);
+							delete ws.requests[req_id];
+							reject(new Error('Timeout waiting for '+req_id+' response'));
+						}, timeout)
+					};
+				}
 			}
 		});
 	};
