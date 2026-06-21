@@ -309,6 +309,10 @@ export function EnhancedWebSocket(...allArgs) {
 							reject(new Error('Timeout waiting for '+req_id+' response'));
 						}, timeout)
 					};
+				} else {
+					// Request already exists (stream), resolve immediately
+					// The first request's promise will handle the final response
+					resolve();
 				}
 			}
 		});
